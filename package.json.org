@@ -1,0 +1,26 @@
+{
+  "name": "nodejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "file_download.js",
+  "dependencies": {
+    "call-limit": "^1.1.1",
+    "chalk": "^3.0.0",
+    "cheerio": "^1.0.0-rc.3",
+    "libnpx": "^10.2.1",
+    "npm-install-checks": "^3.0.2",
+    "opener": "^1.5.1",
+    "query-string": "^6.10.1",
+    "read-package-tree": "^5.3.1",
+    "request": "^2.88.0",
+    "sqlite3": "^4.1.1",
+    "urlencode": "^1.1.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

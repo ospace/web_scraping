@@ -1,0 +1,77 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+	<title>Thumbnails</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="description" content="" />
+	<meta name="keywords" content="" />
+	<meta name="robots" content="index,follow" />
+	<!-- <link rel="stylesheet" type="text/css" href="thumb.css" /> -->
+</head>
+
+<body>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.0"></script>
+<script>
+const rowCnt = 10;
+const size = 300;
+
+window.onload = async function() {
+    const styles = `
+        .thumb {
+            background-repeat: no-repeat;
+            background-image: url(thumb.jpg);
+        }
+    `;
+    addStyle(styles);
+    
+    let jsonDb = await getData();
+    console.log('>> db:', jsonDb);
+    
+    for(let i=0; i<100; ++i) appendThumb(i);
+    
+}; 
+
+function addStyle(styles) {
+    let css = document.createElement('style');
+    css.type = 'text/css';
+
+    if (css.styleSheet) { // This is required for IE8 and below.
+        css.styleSheet.cssText = styles; 
+    } else {
+        css.appendChild(document.createTextNode(styles)); 
+    }    
+    
+    document.getElementsByTagName("head")[0].appendChild(css);
+}
+
+function appendThumb(id) {
+    const x = parseInt(id%10)*size, y = parseInt(id/10)*size;
+    
+    let thumbLink = document.createElement('a');
+    thumbLink.href = `${id}`;
+    
+    let elem = document.createElement('i');
+    elem.className = `thumb`;
+    elem.style.cssText = `
+        display: inline-block;
+        width: ${size}px;
+        height: ${size}px;
+        background-position: -${x}px -${y}px
+    `;
+
+    thumbLink.appendChild(elem);
+    
+    //let span = document.createElement('span');
+    //span.innerHTML = `${id}`;
+    //div.appendChild(span);
+    
+    document.body.appendChild(thumbLink);
+}
+
+function getData() {
+    return fetch('/db.json').then(res=> res.json() );
+}
+</script>
+</body>
+</html>
