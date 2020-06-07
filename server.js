@@ -2,9 +2,9 @@ const http = require('http');
 const url = require('url');
 const querystring = require('querystring'); 
 const fs = require('fs');
-const express = require('express');
+//const express = require('express');
 
-/*
+
 var server = http.createServer( function(req, res) { 
     console.time('request');
     
@@ -40,7 +40,19 @@ var server = http.createServer( function(req, res) {
     }
     
     console.log('>> reqUrl:', reqUrl);
-    res.writeHead(200, {'Content-Type':'text/html'});
+    
+    let ext = reqUrl.substr(reqUrl.lastIndexOf('.'));
+    switch(ext) {
+    case '.jpg':
+        res.writeHead(200, {'Content-Type':'image/jpeg'});
+        break;
+    case '.png':
+        res.writeHead(200, {'Content-Type':'image/png'});
+        break;
+    default:
+        res.writeHead(200, {'Content-Type':'text/html'});
+        break;
+    }
     res.end(fs.readFileSync(__dirname+reqUrl));
     
     console.timeEnd('request');
@@ -49,21 +61,25 @@ var server = http.createServer( function(req, res) {
 server.listen(8080, function(){
     console.log('Server is running...');
 });
-*/
 
-let app = express();
 
-//정적 페이지 위치:
-//<link rel="stylesheet" type="text/css" href="css/style.css"> 이라고 하면
-// 파일 위치는 static/css/style.css 가 됨.
-app.use(express.static('static'));
+function extension(filename) {
+    if(!filename) return null;
+    return filename.substr(filename.lastIndexOf('.'));
+}
+// let app = express();
 
-// root에 대한 GET 요청 처리
-app.get('/', function(req, res) {
-    res.writeHead(200,{'Content-Type':'text/html'});
-    res.end('Hello Home!');
-});
+// //정적 페이지 위치:
+// //<link rel="stylesheet" type="text/css" href="css/style.css"> 이라고 하면
+// // 파일 위치는 static/css/style.css 가 됨.
+// app.use(express.static('static'));
 
-app.listen(8080, function() {
-   console.log('listening 8080 port...');
-});
+// // root에 대한 GET 요청 처리
+// app.get('/', function(req, res) {
+    // res.writeHead(200,{'Content-Type':'text/html'});
+    // res.end('Hello Home!');
+// });
+
+// app.listen(8080, function() {
+   // console.log('listening 8080 port...');
+// });

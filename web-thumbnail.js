@@ -23,7 +23,7 @@ const util = require('./util');
 class WebThumbnail {
     constructor(repo, size, count) {
         this.repo = repo || new repository();
-        this.size = size || 200;
+        this.size = size || 250;
         this.count = count || 20;
         this.queue = [];
         
@@ -49,7 +49,7 @@ class WebThumbnail {
     // 2.선택된 파일에 현 thumbnail id을 저장.
     // 3.현 thumbnail에 total을 1 증가
     append(id) {
-        return new Promise(function(resolve) {
+        return new Promise(function(resolve, reject) {
             let file = this.repo.findDataById(id);
             let ext = file.extension && file.extension.toLowerCase();
             if('.jpg'!==ext && '.png'!==ext) {
@@ -58,7 +58,7 @@ class WebThumbnail {
             }
 
             let isEmpty = this.isEmpty();
-            this.queue.push({id, resolve});
+            this.queue.push({id, resolve, reject});
             if(isEmpty) {
                 this.run();
             }
@@ -67,26 +67,26 @@ class WebThumbnail {
 
     run() {
         if(this.isEmpty()) return;
+        let self = this;
         let job = this.queue[0];
         let file = this.repo.findDataById(job.id);
 
-        if (this.thumbInfo.total >= this.thumbInfo.count * this.thumbInfo.count) {
+        if (this.thumbInfo.total >= (this.thumbInfo.count*this.thumbInfo.count)) {
             this.saveNewThumbnail();
         }
-
-        this.repo.updateData({id:job.id, thumbId:this.thumbInfo.id, order:this.thumbInfo.total});
-        this.repo.updateThumbnail({id:this.thumbInfo.id, total:++this.thumbInfo.total});
+        
         this.thumb.append(file.filename)
-        .then(()=>{
+        .then((idx)=>{
+            self.repo.updateThumbnail({id:self.thumbInfo.id, total:++self.thumbInfo.total});
+            self.repo.updateData({id:job.id, thumbId:self.thumbInfo.id, order:idx});
             job.resolve();
-            this.queue.shift();
-            if(!this.isEmpty()) this.run();
+            self.queue.shift();
+            if(!self.isEmpty()) self.run();
         })
         .catch((err)=>{
-            util.log('[e]', err, '-', file.filename);
-            job.resolve();
-            this.queue.shift();
-            if(!this.isEmpty()) this.run();
+            job.reject();
+            self.queue.shift();
+            if(!self.isEmpty()) self.run();
         });
     }
 
@@ -105,7 +105,7 @@ class WebThumbnail {
 
     findLastThumbnail() {
         let cnt = this.repo.countThumbnail();
-        return 0 < cnt ? this.repo.findThumbnailAt(cnt) : null;
+        return 0 < cnt ? this.repo.findThumbnailAt(cnt-1) : null;
     }
 }
 

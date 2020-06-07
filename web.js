@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
-const request = require('request');
+//const request = require('request');
 const cheerio = require('cheerio');
-const fs = require('fs');
-const url = require('url');
+//const fs = require('fs');
+//const url = require('url');
 const util = require('./util');
 const progressbar = require('./progress-bar');
 const workpool = require('./workpool');
@@ -58,7 +58,7 @@ exports.done = function() {
         } else {
             global.noJobCnt = 0;
         }
-        if(3 < global.noJobCnt) {
+        if(8 < global.noJobCnt) {
             clearInterval(tick);
             global.workers.forEach(each=>each.stop());
         }
@@ -193,7 +193,7 @@ function getDataEndable(url, callback) {
     let id = null;
     if(item) {
         if('done' === item.state || 'error' === item.state) {
-            util.log(`[${item.state}]`, aUrl);
+            util.log('[S]', global.workPool.length(), item.state, '-', aUrl);
             return;
         } else {
             id = item.id;
@@ -207,10 +207,11 @@ function getDataEndable(url, callback) {
 
         let req = new xrequest(url);
         if('function' === typeof callback) {
+            util.log('[.]', 'string'===typeof url?url:url.url);
             xrequest.mixinString(req)
             .then(res=>{
                 callback(res);
-                global.storage.changeDone(id);
+                //global.storage.changeDone(id);
                 end();
             })
             .catch(err=>{
@@ -236,6 +237,9 @@ function getDataEndable(url, callback) {
                 global.thumb.append(id)
                 .then(()=>{
                     end();
+                })
+                .catch((err)=>{
+                    util.log('[e]', err, '-', filename);
                 });
 
             })
