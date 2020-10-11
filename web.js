@@ -68,7 +68,7 @@ exports.done();
 exports.save = function(aUrl, filename) {
     if(!aUrl || 'string' != typeof aUrl) return;
     
-    if(filename && 'string' != typeof filename) {
+    if(!filename || filename && 'string' != typeof filename) {
         filename = util.filenameOfUrl(aUrl)
     }
     
@@ -83,7 +83,7 @@ exports.save = function(aUrl, filename) {
 exports.append = function(aUrl, filename) {
     if(!aUrl || 'string' != typeof aUrl) return;
     
-    if(filename && 'string' != typeof filename) {
+    if(!filename || filename && 'string' != typeof filename) {
         filename = util.filenameOfUrl(aUrl)
     }
     
