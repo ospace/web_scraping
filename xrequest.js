@@ -19,6 +19,10 @@ const barOptions = {
     format: '{prefix} ['+_colors.cyan('{bar}')+'] {percentage}% | ETA: {eta}s | {value}/{total} | {desc}'
 };
 
+const strBarOptions = {
+    format: '{prefix} | {value} B | {desc}'
+};
+
 /*
  http request 처리
  예)
@@ -73,7 +77,7 @@ function requestBar(request) {
     request.on('response', response => {
         let transEncode = response.headers['transfer-encoding'];
         if ('chunked'===transEncode) {
-            bar = new stringbar(Object.assign({prefix:'FILE'}, barOptions));
+            bar = new stringbar(Object.assign({prefix:'FILE'}, strBarOptions));
         } else {
             let contentLength = response.headers['content-length'];
             bar = new progressbar(contentLength, Object.assign({prefix:'FILE'}, barOptions));
@@ -94,7 +98,9 @@ function requestEvent(request) {
     request.on('response', response => {
         event.emit('begin', response);
         response.on('data', chunk => event.emit('data', chunk))
-        .on('error', err => event.emit('error', err))
+        .on('error', err => {
+            event.emit('error', err);
+        })
         .on('end', _=> event.emit('end'));
     }).on('abort', _=>{
         util.log('>>', 'abort');
@@ -110,7 +116,8 @@ exports.mixinEvent = requestEvent;
 
 function requestFile(request, filename) {
     if(!filename) {
-        filename = util.filenameOfUrl(request.url);
+        throw 'filename is empty!!!';
+        //filename = util.filenameOfUrl(request.url);
     }
 
     return new Promise((resolve, reject) => {
@@ -129,12 +136,12 @@ function requestFile(request, filename) {
             case 'br': decoder = zlib.brotliDecompressSync; break;
             case 'gzip': decoder = zlib.gunzipSync; break;
             }
-            let file = fs.createWriteStream(filename);
+            let file = fs.createWriteStream(filename, {flags:'a+', encoding:null});
             response.pipe(file);
             response.on('end', _=> resolve());
         })
         .on('error', err=>{
-            util.log('>>error:', err);
+            util.log('>> error:', err);
         });
     });
     
@@ -147,9 +154,18 @@ function requestString(request) {
         request.on('response', response=>{
             let statusCode = response.statusCode;
             if(200 !== statusCode) {
-                let statusMessage = response.statusMessage;
                 request.abort();
-                reject({statusCode, statusMessage});
+                let statusMessage = response.statusMessage;
+                
+                switch(statusCode) {
+                case 301: case 302:
+                    let location = response.headers.location;
+                    reject({statusCode, statusMessage, location});
+                    break;
+                default:
+                    reject({statusCode, statusMessage});
+                    break;
+                }
                 return;
             }
 
@@ -161,12 +177,13 @@ function requestString(request) {
             case 'br': decoder = zlib.brotliDecompressSync; break;
             case 'gzip': decoder = zlib.gunzipSync; break;
             }
-            
             response
             .on('data', chunk => {
                 chunks.push(chunk);
             })
-            .on('error', err => reject(err))
+            .on('error', err => {
+                reject(err);
+            })
             .on('end', _=> {
                 let buf = Buffer.concat(chunks);
                 buf = decoder ? decoder(buf) : buf;
