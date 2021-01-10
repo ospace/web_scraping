@@ -256,7 +256,7 @@ function getDataEndable(url, callback) {
                         getDataEndable(err.location, callback);
                         break;
                     default:
-                        util.log('[E1]', err, url);
+                        util.log('[E1]', err.statusCode, url);
                         global.storage.changeError(id);
                         break;
                     }

@@ -149,8 +149,8 @@ function requestFile(request, filename) {
 exports.mixinFile = requestFile;
 
 function requestString(request) {
-    let chunks = [];
     return new Promise((resolve, reject)=>{
+        let chunks = [];
         request.on('response', response=>{
             let statusCode = response.statusCode;
             if(200 !== statusCode) {
@@ -169,14 +169,13 @@ function requestString(request) {
                 return;
             }
 
-            //let transEncode = response.headers['transfer-encoding'];
-            //let contentLength = 'chunked'===transEncode ? -1 : response.headers['content-length'];
             let contentEncoding = response.headers['content-encoding'];
             let decoder = null;
             switch(contentEncoding) {
             case 'br': decoder = zlib.brotliDecompressSync; break;
             case 'gzip': decoder = zlib.gunzipSync; break;
             }
+            
             response
             .on('data', chunk => {
                 chunks.push(chunk);
