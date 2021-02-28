@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-//const request = require('request');
+const request = require('request');
 const cheerio = require('cheerio');
 const fs = require('fs');
 //const url = require('url');
@@ -28,22 +28,47 @@ exports.cheerio = cheerio;
 var cocurrent_conn = 0;
 const MAX_CONN = 3;
 
-var global = {};
-global.workPool = new workpool();
-global.workers = [];
-global.noJobCnt = 0;
+var global = {
+    retryMax: 200
+};
 
-global.repo = new repository();
-global.storage = new webstorage(global.repo);
-global.thumb = new webThumbnail(global.repo);
+initWorkPool();
+function initWorkPool() {
+    global.workPool = new workpool();
+    global.workers = [];
+    global.noJobCnt = 0;
 
-for(let i=0; i<MAX_CONN; ++i) {
-    let w = new workpool.worker(global.workPool);
-    global.workers.push(w);
-    w.run();
+    global.repo = new repository();
+    global.storage = new webstorage(global.repo);
+    global.thumb = new webThumbnail(global.repo);
+
+    for(let i=0; i<MAX_CONN; ++i) {
+        let w = new workpool.worker(global.workPool);
+        global.workers.push(w);
+        w.run();
+    }
+    
+    util.log('worker initialized:', global.workers.length, 'ea');
 }
 
-util.log('worker initialized:', global.workers.length, 'ea');
+function isRunning() {
+    for(let i=0; i<MAX_CONN; ++i) {
+        let w = global.workers[i];
+        if(w.isRunning()) return true;
+    }
+    
+    return false;
+}
+
+function runningCount() {
+    var ret = 0;
+    for(let i=0; i<MAX_CONN; ++i) {
+        let w = global.workers[i];
+        if(w.isRunning()) ++ret;
+    }
+    
+    return ret;
+}
 
 /*
  종료시점 정하는 문제
@@ -52,12 +77,14 @@ util.log('worker initialized:', global.workers.length, 'ea');
  */
 exports.done = function() {
     let tick = setInterval(()=>{
-        if (global.workPool.empty()) {
+        
+        if (!isRunning()) {
             ++global.noJobCnt;
         } else {
             global.noJobCnt = 0;
         }
-        if(8 < global.noJobCnt) {
+        
+        if(3 < global.noJobCnt) {
             clearInterval(tick);
             global.workers.forEach(each=>each.stop());
         }
@@ -212,15 +239,8 @@ exports.getJson = function(aUrl) {
     });
 }
 
-function getDataEndable(url, callback) {
-    let aUrl = 'string'===typeof url ? url : url.url;
-
-    /*
-    1.URL이 상태 정보 획득
-    1.1.상태가 done 또는 error인 경우 종료
-    1.2.상태가 init또는 ing인 경우 진행
-    2.상태 값을 ing 상태로 변경
-    */
+function getDataEndable(options, callback) {
+    let aUrl = 'string'===typeof options ? options : options.url;
     let item = global.storage.getItem(aUrl);
     let id = null;
     if(item) {
@@ -233,72 +253,107 @@ function getDataEndable(url, callback) {
     } else {
         id = global.storage.save(aUrl, callback);
     }
-    
+        
+    return pushJob(res=>{
+        /*
+        1.URL이 상태 정보 획득
+        1.1.상태가 done 또는 error인 경우 종료
+        1.2.상태가 init또는 ing인 경우 진행
+        2.상태 값을 ing 상태로 변경
+        */
+        global.storage.changeIng(id);
+        let req = new xrequest(aUrl);
+        
+        if('function' === typeof callback) {
+            util.log('[.]', runningCount(), aUrl);
+            return xrequest.mixinString(req)
+            .then(({body})=>{
+                callback(body);
+                //return Promise.resolve();
+                return body;
+            })
+            /*
+            .catch(({type, error})=>{
+                util.log('[E1]', type, error);
+                
+                if(-4077 === error.errno) {
+                    throw {type, error};
+                }
+            });
+            */
+            .catch(err=>{
+                util.log('[E1] ' + err);
+                
+                if(err && err.error && -4077 === err.error.errno) {
+                    throw err;
+                }
+            });
+        } else {
+            /*
+             파일 저장이 완료되고 해당 id획득하고, Thumbnail로 저장
+             1.현재 Thumbnail이 모두 사용되었는지 확인
+             1.1.모두 사용중이면
+             1.1.2.새로운 Thumbnail을 생성하고 Thumbnail 목록에 추가함.
+             1.2.현재 Thumbnail에 파일 추가하고 index값 획득
+             1.3.현재 Thumbnail 정보에 해당 파일 인덱스 파일에 id값 저장
+             */
+            xrequest.mixinBar(req);
+
+            let filename = callback;
+            return xrequest.mixinFile(req, filename)
+            .then(res=>{
+                global.storage.changeDone(id);
+                global.thumb.append(id)
+                .catch(err=>{
+                    //util.log('[E2]', err);
+                });
+            })
+            .catch(err=>{
+                util.log('[E2] ' + err); 
+                if(err && err.error && 'TIMEOUT' === err.error.code) {
+                    fn.unlinkSync(filename);
+                    throw err;
+                }
+            });
+        }
+    });
+};
+
+exports.postForm = postForm;
+function postForm(url, data, retry=global.retryMax) {
+    return pushJob(res=>{
+        return new Promise(function(resolve, reject) {
+            util.log("[.]", url);
+            request.post({
+                url: url,
+                form: data,
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.110 Safari/537.36',
+                    'Content-Type' : 'multipart/form-data' 
+                },
+                method: 'POST'
+            }, function(err, data) {
+                err ? reject(err) : resolve(data && data.body);
+            });
+        });
+    });
+}
+
+exports.pushJob = pushJob;
+function pushJob(fn) {
     return new Promise(function(resolve, reject) {
-
-        let job =  workpool.newJob((end)=>{
-            global.storage.changeIng(id);
-
-            let req = new xrequest(url);
-            if('function' === typeof callback) {
-                util.log('[.]', global.workPool.length(), 'string'===typeof url?url:url.url);
-                xrequest.mixinString(req)
+        let job =  workpool.newJob(end=>{
+            util.retry(fn, global.retryMax)
                 .then(res=>{
-                    callback(res);
+                    resolve(res);
                     end();
-                    resolve();
                 })
                 .catch(err=>{
-                    console.log('Error in mixinString:', err);
-                    switch(err.statusCode) {
-                    case 301: case 302:
-                        util.log('[>]', url, '->', err.location);
-                        getDataEndable(err.location, callback);
-                        break;
-                    default:
-                        util.log('[E1]', err.statusCode, url);
-                        global.storage.changeError(id);
-                        break;
-                    }
+                    util.log('[E]', err);
+                    reject(err);
                     end();
-                    reject();
-                })
-            } else {
-                /*
-                 파일 저장이 완료되고 해당 id획득하고, Thumbnail로 저장
-                 1.현재 Thumbnail이 모두 사용되었는지 확인
-                 1.1.모두 사용중이면
-                 1.1.2.새로운 Thumbnail을 생성하고 Thumbnail 목록에 추가함.
-                 1.2.현재 Thumbnail에 파일 추가하고 index값 획득
-                 1.3.현재 Thumbnail 정보에 해당 파일 인덱스 파일에 id값 저장
-                 */
-                xrequest.mixinBar(req);
-
-                let filename = callback;
-                xrequest.mixinFile(req, filename)
-                .then(res=>{
-                    global.storage.changeDone(id);
-                    global.thumb.append(id)
-                    .then(()=>{
-                        end();
-                        resolve();
-                    })
-                    .catch((err)=>{
-                        util.log('[e]', err, '-', filename);
-                        end();
-                        reject();
-                    });
-
-                })
-                .catch(err=>{
-                    console.log('Error in mixinFile:', err);
-                    util.log('[E2]', err, url);
-                    global.storage.changeError(id);
-                    end();
-                    reject();
-                })
-            }
+                });
         });
         global.workPool.push(job);
     });
-};
+}

@@ -7,6 +7,7 @@ const zlib = require('zlib');
 //const URL = require('url');
 const _colors = require('colors');
 const fs = require('fs');
+const FormData = require('form-data');
 
 const progressbar = require('./progress-bar');
 const stringbar = require('./string-bar');
@@ -34,6 +35,8 @@ r.on('data', chunk=>{
 let r = web.RequestBar(url);
 
  */
+ 
+ // https://stackoverflow.com/questions/37195098/node-js-https-get-request-econnreset
 function Request (url, options) {
     if('object' === typeof url) {
         options = url;
@@ -41,11 +44,15 @@ function Request (url, options) {
     }
 
     options = Object.assign({
-        rejectUnauthorized:false
+        rejectUnauthorized:false,
+        timeout: 5000
     }, options);
 
     options.headers = Object.assign({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36',
+        'Content-Type': options.contentType || null,
+        //'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.110 Safari/537.36',
+        //'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:85.0) Gecko/20100101 Firefox/85.0',
         'Cache-Control': 'no-cache',
         'pragma': 'no-cache',
         'Accept':'text/html,*/*',
@@ -54,16 +61,38 @@ function Request (url, options) {
         'Accept-Encoding': 'gzip, deflate, br'
         //'Accept-Encoding': 'deflate, br'
     }, options.headers);
-
+    
+    const isFormData = options.data instanceof FormData;
+    if (isFormData) {
+        options.headers = Object.assign(options.headers, options.data.getHeaders());
+        /*
+        options.data.getLength(function(err, length) {
+           if(err) return;
+            ret.setHeader('Content-Length', length);
+        });
+        */
+    }
+    
     const self = this;
 
     url = url || options.url;
     const aUrl = new URL(url);
     const protocol =  PROTOCOL[aUrl.protocol];
 
-    let ret = protocol.request( url, options);
+    let ret = protocol.request(url, options);
     ret.url = url;
-
+    ret
+        .on('timeout', _=> {
+            ret.abort();
+            ret.emit('error', util.mixinToString({code:'TIMEOUT', url:url}));
+        })
+        .on('uncaughtException', ex=>{
+            ret.abort();
+        ret.emit('error', util.mixinToString({code:'UncaughtException',  url:url, exception:ex}));
+        });
+    
+    isFormData && options.data.pipe(ret);
+    
     ret.end();
 
     return ret;
@@ -108,6 +137,10 @@ function requestEvent(request) {
         util.log('>>', 'close');
     }).on('error', _=>{
         util.log('>>', 'error');
+    }).on('timeout', ex=>{
+        util.log('timeout:', ex); 
+    }).on('uncaughtException', ex=>{
+        util.log('uncaughtException:', ex); 
     });
 
     return event;
@@ -115,11 +148,6 @@ function requestEvent(request) {
 exports.mixinEvent = requestEvent;
 
 function requestFile(request, filename) {
-    if(!filename) {
-        throw 'filename is empty!!!';
-        //filename = util.filenameOfUrl(request.url);
-    }
-
     return new Promise((resolve, reject) => {
         request
         .on('response', response=>{
@@ -127,7 +155,7 @@ function requestFile(request, filename) {
             if(200 !== statusCode) {
                 let statusMessage = response.statusMessage;
                 request.abort();
-                reject({statusCode, statusMessage});
+                reject(util.Error('error_', {statusCode, statusMessage}));
                 return;
             }
             let contentEncoding = response.headers['content-encoding'];
@@ -141,7 +169,7 @@ function requestFile(request, filename) {
             response.on('end', _=> resolve());
         })
         .on('error', err=>{
-            util.log('>> error:', err);
+            reject(util.Error('error', err));
         });
     });
     
@@ -151,25 +179,30 @@ exports.mixinFile = requestFile;
 function requestString(request) {
     return new Promise((resolve, reject)=>{
         let chunks = [];
-        request.on('response', response=>{
+        request
+        .on('response', response=>{
             let statusCode = response.statusCode;
+            let statusMessage = response.statusMessage;
+            
+            const headers = response.headers;
+            /*
             if(200 !== statusCode) {
                 request.abort();
-                let statusMessage = response.statusMessage;
                 
                 switch(statusCode) {
                 case 301: case 302:
-                    let location = response.headers.location;
-                    reject({statusCode, statusMessage, location});
+                    let location = headers.location;
+                    reject(util.Error('error_', {statusCode, statusMessage, location}));
                     break;
                 default:
-                    reject({statusCode, statusMessage});
+                    reject(util.Error('error_', {statusCode, statusMessage}));
                     break;
                 }
                 return;
             }
+            */
 
-            let contentEncoding = response.headers['content-encoding'];
+            let contentEncoding = headers['content-encoding'];
             let decoder = null;
             switch(contentEncoding) {
             case 'br': decoder = zlib.brotliDecompressSync; break;
@@ -180,15 +213,18 @@ function requestString(request) {
             .on('data', chunk => {
                 chunks.push(chunk);
             })
-            .on('error', err => {
-                reject(err);
+            .on('error', (err) => {
+                reject(util.Error('error_', err));
             })
             .on('end', _=> {
                 let buf = Buffer.concat(chunks);
                 buf = decoder ? decoder(buf) : buf;
-                let str = buf.toString('utf8');
-                resolve(str);
+                let body = buf.toString('utf8');
+                resolve({body, header:{status:statusCode, statusText:statusMessage, headers}});
             });
+        })
+        .on('error', err=>{
+            reject(util.Error('error', err));
         });
     });
 }

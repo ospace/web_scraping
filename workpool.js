@@ -35,19 +35,32 @@ function Worker(pool) {
 
 Worker.prototype = {
     pool: null,
+    status: 'stopped',
     _tick: function() {
         setTimeout(this.run.bind(this), 500);
     },
     run: function() {
-        if(this.isStop) return;
-        if(this.pool.empty()) return this._tick();
-        let job = this.pool.poll();
-        if(!util.isFunc(job)) return this.run();
-
-        job().then(this.run.bind(this));
+        var self = this;
+        self.status = 'running';
+        if(self.isStop) {
+            self.status = 'stopped';
+            return;
+        }
+        
+        if(self.pool.empty()) {
+            self.status = 'waiting';
+            return self._tick();
+        }
+        
+        let job = self.pool.poll();
+        if(!util.isFunc(job)) return self.run();
+        job().then(self.run.bind(self));
     },
     stop: function() {
         this.isStop = true;
+    },
+    isRunning: function() {
+        return 'running' === this.status;
     }
 };
 

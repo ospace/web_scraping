@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
+const assert = require('assert');
 const process = require('process');
 const colors = require('colors');
 const path = require('path');
@@ -9,6 +10,7 @@ const fs = require('fs');
 const jsonColorize = require('json-colorizer');
 const printableCharacters = require ('printable-characters');
 const terminal = require('./terminal');
+const url = require('url');
 
 exports.log = log;
 function log(...args) {
@@ -88,25 +90,25 @@ function getFilename (filename) {
 }
 
 exports.filenameOfUrl = filenameOfUrl;
-function filenameOfUrl (url) {
-    let idx = url.lastIndexOf('?');
+function filenameOfUrl (urlStr) {
+    let idx = urlStr.lastIndexOf('?');
     if(0 < idx) {
-        url = url.substring(0, idx);
+        urlStr = urlStr.substring(0, idx);
     }
-	return url.substring(url.lastIndexOf('/')+1);	
+	return urlStr.substring(urlStr.lastIndexOf('/')+1);	
 }
 
 exports.filenameOf = filenameOf;
-function filenameOf (url) {
-    if(!url) return undefined;
+function filenameOf (urlStr) {
+    if(!urlStr) return undefined;
     
-    let idx = url.lastIndexOf('?');
+    let idx = urlStr.lastIndexOf('?');
     if(0 < idx) {
-        url = url.substring(0, idx);
+        urlStr = urlStr.substring(0, idx);
     }
-    idx = url.lastIndexOf('/');
+    idx = urlStr.lastIndexOf('/');
     
-	return 0<idx ? url.substring(idx+1) : url;
+	return 0<idx ? urlStr.substring(idx+1) : urlStr;
 }
 
 exports.replaceAll = replaceAll;
@@ -167,12 +169,12 @@ function truncate (msg, len) {
 }
 
 exports.createFilename = createFilename;
-function createFilename(url, filename) {
+function createFilename(urlStr, filename) {
     if(null == filename) {
-        if  ('/' == url.charAt(url.length-1)) {
+        if  ('/' == urlStr.charAt(urlStr.length-1)) {
             return 'index.html';
         } else {
-            return filenameOfUrl(url);
+            return filenameOfUrl(urlStr);
         }
     } else if ('string' === typeof filename) {
         return filename;
@@ -224,7 +226,7 @@ function extend2 (sub, base) {
 }
 
 exports.mixin = mixin;
-function mixin(target, ...sources) {
+function mixin (target, ...sources) {
     if(0 < sources.length && 'function' === typeof sources[0]) {
         sources.forEach(function(each) {
             if('function' === typeof each) each.call(target);
@@ -241,7 +243,7 @@ function hasOwn (obj, key) {
 }
 
 exports.cached = cached;
-function cached(fn) {
+function cached (fn) {
     const cache = Object.create(null);
     return (function cachedFn (str) {
         const hit = cache[str];
@@ -281,4 +283,55 @@ function once (fn) {
         fn.apply(this, arguments);
         }
     }
+}
+
+// https://stackoverflow.com/questions/38213668/promise-retry-design-patterns
+
+exports.retry = retry;
+function retry(fn, retryCnt=3, delay=100) {
+    //assert(fn instanceof Promise, 'fn must be Promise');
+    const action = function(resolve, reject, cnt=retryCnt) {
+        fn()
+            .then(resolve)
+            .catch(err=>{
+                 if(0 < cnt) {
+                    setTimeout(action.bind(null, resolve, reject, cnt-1), 10+delay*Math.random());
+                } else {
+                    reject(err);
+                }
+            });
+    };
+    
+    return new Promise(action);
+}
+
+exports.removeByteOrder = removeByteOrder;
+function removeByteOrder(str){
+    return str.replace(/^\ufeff/g,"")
+}
+
+exports.parseM3u8 = parseM3u8;
+function parseM3u8(data) {
+    return data.toString().trim().split('\n')
+        .map(function(line) {
+            line = line.trim();
+            if(line[0] === '#') {
+                return (line.match(/URI="([^"]+)"/) || [])[1];
+            }
+            return line;
+        })
+        .filter(function(line) {
+            return line;
+        });
+}
+
+exports.Error = newError;
+function newError(type, error) {
+    return mixinToString({type, error})
+}
+
+exports.mixinToString = mixinToString;
+function mixinToString(obj) {
+    obj.toString = function() { return jsonColorize(JSON.stringify(this))};
+    return obj
 }
