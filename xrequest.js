@@ -50,9 +50,9 @@ function Request (url, options) {
 
     options.headers = Object.assign({
         'Content-Type': options.contentType || null,
-        //'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.110 Safari/537.36',
-        //'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:85.0) Gecko/20100101 Firefox/85.0',
+        //'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36', 
+        //'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.110 Safari/537.36', // Mobile?
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:85.0) Gecko/20100101 Firefox/85.0',
         'Cache-Control': 'no-cache',
         'pragma': 'no-cache',
         'Accept':'text/html,*/*',
@@ -185,22 +185,6 @@ function requestString(request) {
             let statusMessage = response.statusMessage;
             
             const headers = response.headers;
-            /*
-            if(200 !== statusCode) {
-                request.abort();
-                
-                switch(statusCode) {
-                case 301: case 302:
-                    let location = headers.location;
-                    reject(util.Error('error_', {statusCode, statusMessage, location}));
-                    break;
-                default:
-                    reject(util.Error('error_', {statusCode, statusMessage}));
-                    break;
-                }
-                return;
-            }
-            */
 
             let contentEncoding = headers['content-encoding'];
             let decoder = null;

@@ -154,7 +154,7 @@ exports.postForm = function(urlStr, data, options) {
 }
 
 exports.save = function(urlStr, filepath, options) {
-    if ('object' === typeof filepath) {
+    if (!filepath || 'object' === typeof filepath) {
         options = filepath;
         filepath = util.filenameOfUrl(urlStr);
     }
@@ -164,7 +164,7 @@ exports.save = function(urlStr, filepath, options) {
     }, options);
     
     return pushJob(_=>{
-        if(fs.existsSync(filepath)) {
+        if(!options.appendFile && fs.existsSync(filepath)) {
             util.log('[s] existed', filepath);
             return Promise.resolve();
         }
