@@ -4,7 +4,6 @@
 const request = require('request');
 const cheerio = require('cheerio');
 const fs = require('fs');
-//const url = require('url');
 const util = require('./util');
 const progressbar = require('./progress-bar');
 const workpool = require('./workpool');
@@ -12,7 +11,6 @@ const repository = require('./repository');
 const webstorage = require('./web-storage');
 const xrequest = require('./xrequest');
 const webThumbnail = require('./web-thumbnail');
-//require('ansi')(process.stdout);
 
 //oauth
 //https://github.com/request/request

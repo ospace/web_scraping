@@ -6,7 +6,6 @@ const process = require('process');
 const colors = require('colors');
 const path = require('path');
 const fs = require('fs');
-//const events = require('events');
 const jsonColorize = require('json-colorizer');
 const printableCharacters = require ('printable-characters');
 const terminal = require('./terminal');
@@ -334,4 +333,20 @@ exports.mixinToString = mixinToString;
 function mixinToString(obj) {
     obj.toString = function() { return jsonColorize(JSON.stringify(this))};
     return obj
+}
+
+exports.assign = assign;
+function assign(target, source) {
+    var target_ = target || {};
+    for (var key in source) {
+        var src = source[key];
+        target_[key] = src instanceof Object ? assign(target_[key], src) : src;
+    }
+    
+    return target_;
+}
+
+exports.removeFileSync = function (filepath) {
+    if (!fs.existsSync(filepath)) return;
+    fs.unlinkSync(filepath);
 }

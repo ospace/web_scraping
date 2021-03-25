@@ -5,7 +5,6 @@ const assert = require('assert');
 const request = require('request');
 const cheerio = require('cheerio');
 const fs = require('fs');
-//const url = require('url');
 const util = require('./util');
 const progressbar = require('./progress-bar');
 const workpool = require('./workpool');
@@ -97,22 +96,28 @@ exports.open = function(urlStr, options) {
                 util.log('[E1]', err);
                 throw err;
             });
-    }, options.retry);
+    }, options.retry)
+    .catch(err=>{
+        util.log('[E2] ' + err); 
+    });
 }
 
-/*
-exports.postForm = function(urlStr, param, options) {
+/* Error: could not read from response
+exports.postForm2 = function(urlStr, param, options) {
     let formData = new FormData();
     for(let k in param) {
         formData.append(k, param[k]);
     }
     
-    options = Object.assign({
+    options = util.assign({
         url: urlStr,
         method: 'POST',
         data: formData,
+        headers: {
+            'Connection':'close'
+        }
     }, options);
-    
+        
     return exports.open(options);
 }
 */
@@ -132,7 +137,7 @@ exports.postForm = function(urlStr, data, options) {
                 method: 'POST'
             }, function(err, res) {
                 if(err) {
-                    util.log('[E2]', err);
+                    util.log('[E3]', err);
                     reject(err);
                     /*
                     if(-4077 === err.errno) {
@@ -150,7 +155,10 @@ exports.postForm = function(urlStr, data, options) {
                 }
             });
         });
-    }, options.retry);
+    }, options.retry)
+    .catch(err=>{
+        util.log('[E4] ' + err); 
+    });
 }
 
 exports.save = function(urlStr, filepath, options) {
@@ -173,13 +181,16 @@ exports.save = function(urlStr, filepath, options) {
         xrequest.mixinBar(req);
         return xrequest.mixinFile(req, filepath)
             .catch(err=>{
-                util.log('[E2] ' + err); 
+                util.log('[E5] ' + err); 
                 if(err && err.error && 'TIMEOUT' === err.error.code) {
-                    fs.unlinkSync(filepath);
+                    util.removeFileSync(filepath);
                     throw err;
                 }
             });
-    }, options.retry);
+    }, options.retry)
+    .catch(err=>{
+        util.log('[E6] ' + err); 
+    });
 }
 
 function Response(url, body, init) {
@@ -192,10 +203,15 @@ function Response(url, body, init) {
 
 Response.prototype = Object.assign(Response.prototype, {
     json: function() {
-        return this.body && JSON.parse(util.removeByteOrder(this.body));
+        assert(this.body, 'null body in json');
+        
+        return JSON.parse(util.removeByteOrder(this.body));
     },
     select: function(pattern) {
-        assert(this.body, 'null body');
+        return this.find(pattern);
+    },
+    find: function(pattern) {
+        assert(this.body, 'null body in select');
         
         let $ = this.$ || (this.$ = cheerio.load(this.body));
     
@@ -204,7 +220,7 @@ Response.prototype = Object.assign(Response.prototype, {
         }).get();
     },
     regex: function(re) {
-        assert(this.body, 'null body');
+        assert(this.body, 'null body in regex');
         assert(re, 'null regex');
             
         let ret = [];
@@ -216,7 +232,7 @@ Response.prototype = Object.assign(Response.prototype, {
         return ret;
     },
     m3u8: function() {
-        assert(this.body, 'null body');
+        assert(this.body, 'null body in m3u8');
         
         return util.parseM3u8(this.body);
     },
