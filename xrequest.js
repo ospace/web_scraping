@@ -155,8 +155,9 @@ function requestFile(request, filename) {
             let statusCode = response.statusCode;
             if(200 !== statusCode) {
                 let statusMessage = response.statusMessage;
+                let headers = response.headers;
                 request.abort();
-                reject(util.Error('error_', {statusCode, statusMessage}));
+                reject(util.Error('error_', {statusCode, statusMessage, headers}));
                 return;
             }
             let contentEncoding = response.headers['content-encoding'];
@@ -168,6 +169,10 @@ function requestFile(request, filename) {
             let file = fs.createWriteStream(filename, {flags:'a+', encoding:null});
             response.pipe(file);
             response.on('end', _=> resolve());
+            file.on('error', function (err) {
+                console.log('e>', err);
+                reject(util.Error('error', err))
+            });
         })
         .on('error', err=>{
             reject(util.Error('error', err));

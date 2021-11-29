@@ -23,6 +23,7 @@ WorkPool.prototype = {
     jobs: null,
     push: function(job) { this.jobs.push(job) },
     poll: function() { return this.jobs.shift() },
+    pop: function() { return this.jobs.pop() },
     empty: function() { return 0 === this.jobs.length },
     length: function() { return this.jobs.length }
 };
@@ -52,7 +53,7 @@ Worker.prototype = {
             return self._tick();
         }
         
-        let job = self.pool.poll();
+        let job = self.pool.pop();
         if(!util.isFunc(job)) return self.run();
         job().then(self.run.bind(self));
     },

@@ -193,6 +193,10 @@ exports.save = function(urlStr, filepath, options) {
     });
 }
 
+exports.xml = function(xmlStr) {
+    return cheerio.load(xmlStr);
+}
+
 function Response(url, body, init) {
     this.url = url;
     this.body = body;

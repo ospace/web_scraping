@@ -105,6 +105,22 @@ exports.save = function(aUrl, filename) {
     return getDataEndable({url:aUrl, headers:{'Accept':'*/*'}}, filename);
 }
 
+exports.saveImage = function(aUrl, filename) {
+    if(!aUrl || 'string' != typeof aUrl) return;
+    
+    if(!filename || filename && 'string' != typeof filename) {
+        filename = util.filenameOfUrl(aUrl)
+    }
+    
+    if(fs.existsSync(filename)) {
+        util.log('[s] existed', filename);
+        return;
+    }
+    
+    return getDataEndable({url:aUrl, headers:{'Accept':'image/avif,image/webp,*/*', 'Sec-Fetch-Dest':'image'}}, filename);
+}
+
+
 exports.append = function(aUrl, filename) {
     if(!aUrl || 'string' != typeof aUrl) return;
     
@@ -260,7 +276,8 @@ function getDataEndable(options, callback) {
         2.상태 값을 ing 상태로 변경
         */
         global.storage.changeIng(id);
-        let req = new xrequest(aUrl);
+        //let req = new xrequest(aUrl);
+        let req = new xrequest(options);
         
         if('function' === typeof callback) {
             util.log('[.]', runningCount(), aUrl);
@@ -308,8 +325,13 @@ function getDataEndable(options, callback) {
             })
             .catch(err=>{
                 util.log('[E2] ' + err); 
-                if(err && err.error && 'TIMEOUT' === err.error.code) {
-                    fn.unlinkSync(filename);
+                if(err && err.error) {
+                    if('TIMEOUT' === err.error.code) {
+                        fn.unlinkSync(filename);
+                    } else if(301 === err.error.statusCode) {
+                        // err.error.headers.location 에서 찾을 수 있음.
+                    }
+                    
                     throw err;
                 }
             });
