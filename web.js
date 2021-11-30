@@ -330,6 +330,7 @@ function getDataEndable(options, callback) {
                         fn.unlinkSync(filename);
                     } else if(301 === err.error.statusCode) {
                         // err.error.headers.location 에서 찾을 수 있음.
+                        return;
                     }
                     
                     throw err;
