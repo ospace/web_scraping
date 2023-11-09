@@ -4,7 +4,7 @@
   "description": "",
   "main": "",
   "dependencies": {
-    "cheerio": "^1.0.0-rc.5",
+    "cheerio": "^1.0.0-rc.12",
     "express": "^4.17.3",
     "json-colorizer": "^2.2.2",
     "lowdb": "^1.0.0",
