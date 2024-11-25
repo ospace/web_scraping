@@ -61,7 +61,7 @@ function Request(url, options) {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:85.0) Gecko/20100101 Firefox/85.0",
       "Cache-Control": "no-cache",
-      pragma: "no-cache",
+      Pragma: "no-cache",
       Accept: "text/html,*/*",
       //'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
       Connection: "keep-alive",
@@ -70,7 +70,7 @@ function Request(url, options) {
     },
     options.headers
   );
-
+  
   if (options.contentType) options["Content-Type"] = options.contentType;
 
   const isFormData = options.data instanceof FormData;
@@ -125,12 +125,14 @@ function requestBar(request) {
     let transEncode = response.headers["transfer-encoding"];
     if ("chunked" === transEncode) {
       bar = new stringbar(Object.assign({ prefix: "FILE" }, strBarOptions));
+      bar.update(0, { desc: request.url });
     } else {
       let contentLength = response.headers["content-length"];
       bar = new progressbar(
         contentLength,
         Object.assign({ prefix: "FILE" }, barOptions)
       );
+      bar.update(0, { desc: request.url });
     }
 
     response.on("data", (chunk) => {

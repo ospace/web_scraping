@@ -43,36 +43,31 @@ var global = {
     util.log('worker initialized:', global.workers.length, 'ea');
     
     let tick = setInterval(()=>{
-        if (!isRunning()) {
+        /*
+        if (!global.isRunning()) {
             ++global.noJobCnt;
         } else {
             global.noJobCnt = 0;
         }
+        */
         
-        if(3 < global.noJobCnt) {
+        if(!global.isRunning() && global.workPool.empty()) {
             clearInterval(tick);
             global.workers.forEach(each=>each.stop());
+            util.log('done!!!')
         }
+        
     }, 1000);
 })();
 
-function isRunning() {
+global.isRunning = function() {
     for(let i=0, n=global.workers.length; i<n; ++i) {
         let w = global.workers[i];
+        // util.log(`w[${i}] ${w.isRunning()} ${w.status.description}`)
         if(w.isRunning()) return true;
     }
     
     return false;
-}
-
-function runningCount() {
-    let ret = 0;
-    for(let i=0, n=global.workers.length; i<n; ++i) {
-        let w = global.workers[i];
-        if(w.isRunning()) ++ret;
-    }
-    
-    return ret;
 }
 
 exports.open = function(urlStr, options) {
@@ -181,10 +176,19 @@ exports.save = function(urlStr, filepath, options) {
         xrequest.mixinBar(req);
         return xrequest.mixinFile(req, filepath)
             .catch(err=>{
-                util.log('[E5] ' + err); 
-                if(err && err.error && 'TIMEOUT' === err.error.code) {
-                    util.removeFileSync(filepath);
-                    throw err;
+                if(err && err.error) {
+                    if (301 === err.error.statusCode) {
+                        let url = err.error.headers.location;
+                        util.log(`[->] ${url}`);
+                        return exports.save(url, filepath, options);
+                    }
+                    
+                    util.log('[E5] ' + err); 
+                    
+                    if ('TIMEOUT' === err.error.code) {
+                        util.removeFileSync(filepath);
+                        throw err;
+                    }
                 }
             });
     }, options.retry)

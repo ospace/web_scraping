@@ -12,6 +12,10 @@ const webstorage = require('./web-storage');
 const xrequest = require('./xrequest');
 const webThumbnail = require('./web-thumbnail');
 
+const cloudscraper = require('cloudscraper');
+
+exports.cloudscraper = cloudscraper;
+
 //oauth
 //https://github.com/request/request
 //Cloudflare Block
@@ -223,9 +227,8 @@ Connect.prototype.run = function() {
                     return;
                 }
                 //let bar = new progressbar(select.length, {prefix:'EACH'});
-                select.each(function() {
-                    it[1](cheerio(this));
-                    //bar.increment();
+                select.each(function(idx, item) {
+                    it[1]($(item));
                 });
             } else {
                 it[1](data);

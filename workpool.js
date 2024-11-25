@@ -28,6 +28,12 @@ WorkPool.prototype = {
     length: function() { return this.jobs.length }
 };
 
+const STATUS = {
+    running: Symbol('running'),
+    stopped: Symbol('stopped'),
+    waiting: Symbol('waiting')
+};
+
 exports.worker = Worker;
 function Worker(pool) {
     if(undefined === pool) throw "Worker must needed WorkPool: Worker(pool)";
@@ -36,23 +42,24 @@ function Worker(pool) {
 
 Worker.prototype = {
     pool: null,
-    status: 'stopped',
+    status: STATUS.stopped,
     _tick: function() {
         setTimeout(this.run.bind(this), 500);
     },
     run: function() {
         var self = this;
-        self.status = 'running';
+        
         if(self.isStop) {
-            self.status = 'stopped';
+            self.status = STATUS.stopped;
             return;
         }
         
         if(self.pool.empty()) {
-            self.status = 'waiting';
+            self.status = STATUS.waiting;
             return self._tick();
         }
-        
+
+        self.status = STATUS.running;
         let job = self.pool.pop();
         if(!util.isFunc(job)) return self.run();
         job().then(self.run.bind(self));
@@ -61,7 +68,7 @@ Worker.prototype = {
         this.isStop = true;
     },
     isRunning: function() {
-        return 'running' === this.status;
+        return STATUS.running === this.status;
     }
 };
 
